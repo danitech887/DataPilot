@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: datapilot_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=datapilot
+      - POSTGRES_USER=datapilot
+      - POSTGRES_PASSWORD=datapilot
+    ports:
+      - "5432:5432"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datapilot_web
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://datapilot:datapilot@db:5432/datapilot
+      - DATABASE_SSL_REQUIRE=False
+      - DEBUG=False
+      - SECRET_KEY=production-compose-insecure-key-12345
+      - ALLOWED_HOSTS=*
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

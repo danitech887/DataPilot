@@ -1,0 +1,13 @@
+Django
+djangorestframework
+django-cors-headers
+pandas
+openpyxl
+xlrd
+requests
+Pillow
+python-dotenv
+gunicorn
+dj-database-url
+psycopg2-binary
+whitenoise
