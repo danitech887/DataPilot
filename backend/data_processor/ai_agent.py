@@ -1,22 +1,29 @@
 """
 DataPilot — AI Agent
-Wraps the Anthropic or OpenAI API to answer natural-language queries
+Wraps Anthropic, OpenAI, Gemini, or local Ollama API to answer natural-language queries
 about the user's loaded DataFrame.
 
-API keys are configured below using environment variables or by
+API keys and endpoints are configured below using environment variables or by
 hardcoding them directly.
 """
 import json
 import os
+import re
 import pandas as pd
 import requests
 
-# --- API Key Configuration ---
+# --- API Key & Endpoint Configuration ---
 # Load API keys from environment variables.
 # Replace the placeholder values with your actual keys if not using environment variables.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "YOUR_ANTHROPIC_API_KEY_HERE")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY_HERE")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
+
+# Ollama local configuration
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.5:4b")
+OLLAMA_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "300"))
+OLLAMA_THINK = os.environ.get("OLLAMA_THINK", "false").lower() == "true"
 
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
@@ -135,13 +142,106 @@ def ask_gemini(prompt: str, df: pd.DataFrame, model: str = "gemini-2.5-pro", api
     return {"reply": candidate["content"]["parts"][0]["text"], "model": model, "provider": "gemini"}
 
 
-def run_agent(prompt: str, df: pd.DataFrame, provider: str = "anthropic", model: str = None, api_key: str = None) -> dict:
+def ask_ollama(prompt: str, df: pd.DataFrame, model: str = None, base_url: str = None) -> dict:
+    endpoint = (base_url or OLLAMA_BASE_URL).rstrip("/")
+    chat_url = f"{endpoint}/api/chat"
+    target_model = model or OLLAMA_DEFAULT_MODEL
+
+    # Normalize common naming variants
+    normalized = target_model.strip().lower()
+    if normalized in ["qwen 3.5", "qwen-3.5", "qwen_3.5", "qwen3.5:latest"]:
+        target_model = "qwen3.5"
+
+    context = _dataframe_context(df)
+    system_prompt = (
+        "You are DataPilot AI, an expert data analyst embedded in a data entry and analysis tool. "
+        "The user has loaded the following dataset:\n\n"
+        f"{context}\n\n"
+        "Answer the user's question clearly and concisely. "
+        "When providing insights, be specific with numbers. "
+        "If asked to filter or transform data, describe exactly what you would do and show a sample result. "
+        "Do not use markdown code fences in your response."
+    )
+    payload = {
+        "model": target_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ],
+        "stream": False,
+        "think": OLLAMA_THINK,
+        "options": {
+            "num_predict": 1024,
+        },
+    }
+
+    try:
+        resp = requests.post(chat_url, json=payload, timeout=OLLAMA_TIMEOUT)
+
+        # Fallback if specific tag wasn't found (e.g. qwen3.5 vs qwen3.5:4b)
+        if resp.status_code == 404:
+            try:
+                tags_resp = requests.get(f"{endpoint}/api/tags", timeout=5)
+                if tags_resp.status_code == 200:
+                    installed_models = [m.get("name", "") for m in tags_resp.json().get("models", [])]
+                    match = next(
+                        (m for m in installed_models if "qwen" in m.lower() and "3.5" in m.lower()),
+                        None
+                    )
+                    if match and match != target_model:
+                        payload["model"] = match
+                        retry_resp = requests.post(chat_url, json=payload, timeout=OLLAMA_TIMEOUT)
+                        retry_resp.raise_for_status()
+                        target_model = match
+                        resp = retry_resp
+            except Exception:
+                pass
+
+        resp.raise_for_status()
+        data = resp.json()
+        message = data.get("message", {})
+        reply = message.get("content", "").strip()
+
+        # If content is empty but thinking was produced, use thinking
+        if not reply and message.get("thinking"):
+            reply = message["thinking"].strip()
+
+        # Remove any internal <think>...</think> blocks if present in content
+        reply = re.sub(r"<think>.*?</think>", "", reply, flags=re.DOTALL).strip()
+
+        return {"reply": reply, "model": target_model, "provider": "ollama"}
+    except requests.exceptions.ConnectionError:
+        return {
+            "error": f"Could not connect to Ollama at {endpoint}. Ensure Ollama is running (e.g. run 'ollama serve' or open the Ollama desktop app)."
+        }
+    except requests.exceptions.Timeout:
+        return {
+            "error": f"Ollama request timed out after {OLLAMA_TIMEOUT}s. Local inference may take longer on CPU."
+        }
+    except requests.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else 0
+        err_msg = ""
+        if e.response is not None:
+            try:
+                err_data = e.response.json()
+                err_msg = err_data.get("error", str(err_data))
+            except Exception:
+                err_msg = e.response.text
+        return {"error": f"Ollama API error ({status}): {err_msg or str(e)}"}
+    except Exception as e:
+        return {"error": f"Ollama error: {str(e)}"}
+
+
+def run_agent(prompt: str, df: pd.DataFrame, provider: str = "ollama", model: str = None, api_key: str = None) -> dict:
     """
     Route to the correct provider.
-    provider: 'anthropic' | 'openai' | 'gemini'
+    provider: 'ollama' | 'anthropic' | 'openai' | 'gemini'
     """
     try:
-        if provider == "openai":
+        if provider == "ollama":
+            base_url = api_key if (api_key and str(api_key).startswith("http")) else None
+            return ask_ollama(prompt, df, model or OLLAMA_DEFAULT_MODEL, base_url=base_url)
+        elif provider == "openai":
             key = api_key or OPENAI_API_KEY
             if not key or key == "YOUR_OPENAI_API_KEY_HERE":
                 return {"error": "OpenAI API key is not configured in the backend."}

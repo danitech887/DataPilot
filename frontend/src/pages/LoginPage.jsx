@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
+import iconImg from '../assets/icon.png';
 
 export default function LoginPage() {
   const [mode, setMode] = useState('login');
@@ -40,13 +41,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-xl mb-4">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
-            </svg>
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl mb-3 shadow-md border border-slate-100 p-2.5">
+            <img src={iconImg} alt="DataPilot Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-900">DataPilot</h1>
-          <p className="text-sm text-slate-500 mt-1">AI-Powered Data Entry & Analysis</p>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">DataPilot</h1>
+          <p className="text-xs text-slate-500 mt-1 font-medium">AI-Powered Data Platform</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">

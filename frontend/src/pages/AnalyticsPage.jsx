@@ -167,14 +167,19 @@ export default function AnalyticsPage() {
     setReportError('');
     setReportText('');
 
-    const provider = localStorage.getItem('dp_provider') || 'gemini';
-    const model = localStorage.getItem('dp_model') || (provider === 'gemini' ? 'gemini-2.5-pro' : provider === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-20250514');
+    const provider = localStorage.getItem('dp_provider') || 'ollama';
+    const model = localStorage.getItem('dp_model') || (
+      provider === 'ollama' ? 'qwen3.5:4b' :
+      provider === 'gemini' ? 'gemini-2.5-pro' :
+      provider === 'openai' ? 'gpt-4o' :
+      'claude-sonnet-4-20250514'
+    );
 
     try {
       const { data } = await api.post(`/files/${activeFile.id}/report/`, { provider, model });
       setReportText(data.reply);
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to generate report. Make sure your API key is correctly configured.';
+      const errorMsg = err.response?.data?.error || 'Failed to generate report. Make sure your AI provider is configured and reachable.';
       setReportError(errorMsg);
     } finally {
       setGeneratingReport(false);
@@ -204,7 +209,13 @@ export default function AnalyticsPage() {
           </style>
         </head>
         <body>
-          <h1>DataPilot Intelligence & Analytical Report</h1>
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px;">
+            <img src="/icon.png" width="40" height="40" style="object-fit: contain;" />
+            <div>
+              <h1 style="color: #1e3a8a; font-size: 22px; margin: 0; border: none; padding: 0;">DataPilot Intelligence & Analytical Report</h1>
+              <p style="margin: 2px 0 0 0; font-size: 11px; color: #64748b;">AI-Powered Data Platform</p>
+            </div>
+          </div>
           <div class="meta">
             <div>Dataset: <span>${stats.name}</span></div>
             <div>File Size: <span>${stats.size_display}</span></div>

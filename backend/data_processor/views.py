@@ -246,7 +246,7 @@ def generate_report(request, pk):
     except Exception as e:
         return Response({'error': f'Could not load file: {str(e)}'}, status=500)
 
-    provider = request.data.get('provider', 'gemini')
+    provider = request.data.get('provider') or 'ollama'
     model = request.data.get('model')
     ai_api_key = request.headers.get('X-AI-Api-Key') or request.META.get('HTTP_X_AI_API_KEY')
     if ai_api_key in ['undefined', 'null', '']:
@@ -434,7 +434,7 @@ def ai_query(request, pk):
     if not prompt:
         return Response({'error': 'prompt is required'}, status=400)
 
-    provider = request.data.get('provider', 'anthropic')
+    provider = request.data.get('provider') or 'ollama'
     model = request.data.get('model')
     
     ai_api_key = request.headers.get('X-AI-Api-Key') or request.META.get('HTTP_X_AI_API_KEY')

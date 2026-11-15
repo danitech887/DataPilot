@@ -10,6 +10,26 @@ const SUGGESTIONS = [
   'Identify any data quality issues',
 ];
 
+const PROVIDER_MODELS = {
+  ollama: [
+    { value: 'qwen3.5:4b', label: 'Qwen 3.5 4B' },
+    { value: 'qwen3.5',    label: 'Qwen 3.5' },
+  ],
+  anthropic: [
+    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+    { value: 'claude-opus-4-20250514',   label: 'Claude Opus 4' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+  ],
+  openai: [
+    { value: 'gpt-4o',      label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+  ],
+  gemini: [
+    { value: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  ],
+};
+
 function Message({ msg }) {
   return (
     <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -38,12 +58,16 @@ export default function AICopilotPage() {
   }]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [provider, setProvider] = useState(() => localStorage.getItem('dp_provider') || 'anthropic');
+  const [provider, setProvider] = useState(() => localStorage.getItem('dp_provider') || 'ollama');
   const [model, setModel] = useState(() => {
-    let saved = localStorage.getItem('dp_model') || 'claude-sonnet-4-20250514';
-    if (saved === 'gemini-1.5-pro') return 'gemini-2.5-pro';
-    if (saved === 'gemini-1.5-flash') return 'gemini-2.5-flash';
-    return saved;
+    const savedProvider = localStorage.getItem('dp_provider') || 'ollama';
+    let saved = localStorage.getItem('dp_model');
+    if (saved) {
+      if (saved === 'gemini-1.5-pro') return 'gemini-2.5-pro';
+      if (saved === 'gemini-1.5-flash') return 'gemini-2.5-flash';
+      return saved;
+    }
+    return PROVIDER_MODELS[savedProvider]?.[0]?.value || 'qwen3.5:4b';
   });
   const bottomRef = useRef();
 
@@ -99,12 +123,22 @@ export default function AICopilotPage() {
 
           {/* Provider */}
           <select value={provider} onChange={e => {
-            setProvider(e.target.value);
-            setModel(e.target.value === 'anthropic' ? 'claude-sonnet-4-20250514' : e.target.value === 'gemini' ? 'gemini-2.5-pro' : 'gpt-4o');
+            const nextP = e.target.value;
+            setProvider(nextP);
+            setModel(PROVIDER_MODELS[nextP]?.[0]?.value || '');
           }} className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="ollama">Ollama (Local LLM)</option>
             <option value="anthropic">Anthropic</option>
             <option value="openai">OpenAI</option>
             <option value="gemini">Google (Gemini)</option>
+          </select>
+
+          {/* Model */}
+          <select value={model} onChange={e => setModel(e.target.value)}
+            className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {(PROVIDER_MODELS[provider] || [{ value: model, label: model }]).map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
           </select>
         </div>
       </div>
