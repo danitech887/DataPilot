@@ -18,7 +18,7 @@ import traceback
 from datetime import datetime
 
 # Nexis Configuration
-NEXIS_ENDPOINT = os.environ.get("NEXIS_ENDPOINT", "https://home-outlet-pack-underwear.trycloudflare.com/api/v1/telemetry/events")
+NEXIS_ENDPOINT = os.environ.get("NEXIS_ENDPOINT", "https://concentrations-retrieval-chan-poison.trycloudflare.com/api/v1/telemetry/events")
 NEXIS_SOFTWARE_ID = os.environ.get("NEXIS_SOFTWARE_ID", "datapilot")
 NEXIS_API_KEY = os.environ.get("NEXIS_API_KEY", "nx_live_223310508d534fe56d7145f11bc18d168ede8d9b")
 
